@@ -12,6 +12,22 @@ const getAllAuthors = async (req, res) => {
   }
 };
 
+const search = async (req, res) => {
+  try {
+    const { searchingvalue } = req.query
+
+    const authors = await AuthorSchema.find({
+      full_name: {$regex: searchingvalue, $options: "i"}
+    })
+
+    res.status(200).json(authors);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 const addAuthor = async (req, res) => {
   try {
     const { full_name, birth_year, death_year, bio, period, work, region } =
@@ -81,7 +97,7 @@ const updateAuthor = async (req, res) => {
       region,
     });
 
-    res.status(404).json({
+    res.status(200).json({  
       message: "Updated author",
     });
   } catch (error) {
@@ -105,7 +121,7 @@ const deleteAuthor = async (req, res) => {
 
     await AuthorSchema.findByIdAndDelete({_id: id})
 
-    res.status(404).json({
+    res.status(200).json({   
       message: "Deleted author",
     });
   } catch (error) {
@@ -121,4 +137,5 @@ module.exports = {
   addAuthor,
   updateAuthor,
   deleteAuthor,
+  search
 };
