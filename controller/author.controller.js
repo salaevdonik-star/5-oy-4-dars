@@ -7,9 +7,7 @@ const getAllAuthors = async (req, res, next) => {
 
     res.status(200).json(authors);
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 
@@ -23,9 +21,7 @@ const search = async (req, res, next) => {
 
     res.status(200).json(authors);
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 
@@ -50,9 +46,7 @@ const addAuthor = async (req, res, next) => {
       message: "Added new author",
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 
@@ -68,9 +62,7 @@ const getOneAuthor = async (req, res, next) => {
 
     res.status(200).json(foundedAuthor);
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 
@@ -101,9 +93,7 @@ const updateAuthor = async (req, res, next) => {
       message: "Updated author",
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 
@@ -123,9 +113,7 @@ const deleteAuthor = async (req, res, next) => {
       message: "Deleted author",
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    next(error)
   }
 };
 

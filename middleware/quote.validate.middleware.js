@@ -1,7 +1,7 @@
-const bookValidator = require("../validator/book.validator");
+const quoteValidator = require("../validator/quote.validator");
 
 module.exports = function (req, res, next) {
-  const { error } = bookValidator(req.body);
+  const { error } = quoteValidator(req.body);
 
   if (error) {
     return res.status(400).json({

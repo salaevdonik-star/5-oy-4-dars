@@ -1,3 +1,4 @@
+const CustomErrorHandler = require("../error/error")
 const authorValidator = require("../validator/author.validator");
 
 module.exports = function (req, res, next) {

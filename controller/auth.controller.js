@@ -1,60 +1,130 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const UserSchema = require("../schema/user.schema");
 const CustomErrorHandler = require("../error/error");
+const AuthSchema = require("../schema/auth.schema");
+const bcrypt = require("bcryptjs");
+const sendEmail = require("../utils/email-sender");
+const jwt = require("jsonwebtoken");
 
-const register = async (req, res, next) => {
+const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    const existingUser = await UserSchema.findOne({ email });
-    if (existingUser) {
-      return next(CustomErrorHandler.BadRequest("Bu email allaqachon ro'yxatdan o'tgan"));
+    const foundedUser = await AuthSchema.findOne({ email });
+
+    if (foundedUser) {
+      throw CustomErrorHandler.UnAuthorized("User already exists");
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const randomCode = Array.from({ length: 6 }, () =>
+      Math.floor(Math.random() * 9),
+    ).join("");
 
-    await UserSchema.create({
+    const dateNow = Date.now() + 120000;
+
+    const hashPassword = await bcrypt.hash(password, 12);
+
+    await sendEmail(email, randomCode);
+
+    await AuthSchema.create({
       username,
       email,
-      password: hashedPassword,
+      password: hashPassword,
+      otp: randomCode,
+      otpTime: dateNow,
     });
 
     res.status(201).json({
-      message: "Ro'yxatdan o'tish muvaffaqiyatli",
+      message: "Registered",
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      message: error.message || "User already exists",
+    });
   }
 };
 
-const login = async (req, res, next) => {
+const verify = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, code } = req.body;
 
-    const user = await UserSchema.findOne({ email });
-    if (!user) {
-      return next(CustomErrorHandler.UnAuthorized("Email yoki parol noto'g'ri"));
+    const foundedUser = await AuthSchema.findOne({ email });
+
+    if (!foundedUser) {
+      throw CustomErrorHandler.UnAuthorized("User not found");
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return next(CustomErrorHandler.UnAuthorized("Email yoki parol noto'g'ri"));
+    if (foundedUser.otpTime < Date.now()) {
+      throw CustomErrorHandler.UnAuthorized("code expired");
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET || "secret_key",
-      { expiresIn: "1d" }
-    );
+    if (foundedUser.otp !== code) {
+      throw CustomErrorHandler.UnAuthorized("wrong code");
+    }
+
+    const payload = {
+      id: foundedUser._id,
+      email: foundedUser.email,
+      role: foundedUser.role,
+    };
+
+    const token = jwt.sign(payload, process.env.SECRET_KEY, {
+      expiresIn: "15d",
+    });
+
+    await AuthSchema.findByIdAndUpdate(foundedUser._id, {
+      otp: "",
+      otpTime: 0,
+    });
 
     res.status(200).json({
-      message: "Kirish muvaffaqiyatli",
+      message: "Succes",
       token,
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
-module.exports = { register, login };
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const foundedUser = await AuthSchema.findOne({ email });
+
+    if (!foundedUser) {
+      throw CustomErrorHandler.UnAuthorized("User not found");
+    }
+
+    const decode = await bcrypt.compare(password, foundedUser.password);
+
+    if (decode) {
+      const randomCode = Array.from({ length: 6 }, () =>
+        Math.floor(Math.random() * 9),
+      ).join("");
+
+      const dateNow = Date.now() + 120000;
+
+      await sendEmail(email, randomCode);
+
+      await AuthSchema.findByIdAndUpdate(foundedUser._id, {otp: randomCode, otpTime: dateNow})
+
+      res.status(200).json({
+        message: "Please check your email"
+      })
+
+    } else {
+      throw CustomErrorHandler.UnAuthorized("Wrong password");
+    }
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+module.exports = {
+  register,
+  verify,
+  login,
+};
