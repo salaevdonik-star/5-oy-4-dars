@@ -1,5 +1,6 @@
 const CustomErrorHandler = require("../error/error");
 const BookSchema = require("../schema/book.schema");
+const CitationSchema = require("../schema/citation.schema");
 
 const getAllBooks = async (req, res) => {
   try {
@@ -79,7 +80,12 @@ const getOneBook = async (req, res) => {
       throw CustomErrorHandler.NotFound("Book not found");
     }
 
-    res.status(200).json(foundedBook);
+    const foundedCitations = await CitationSchema.find({ book_id: id });
+
+    res.status(200).json({
+      data: foundedBook,
+      citation: foundedCitations
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -138,7 +144,7 @@ const deleteBook = async (req, res) => {
     const foundedBook = await BookSchema.findById(id);
 
     if (!foundedBook) {
-      throw CustomErrorHandler.NotFound("Book not found")
+      throw CustomErrorHandler.NotFound("Book not found");
     }
 
     await BookSchema.findByIdAndDelete({ _id: id });

@@ -3,25 +3,18 @@ const jwt = require("jsonwebtoken");
 
 module.exports = function adminChecker(req, res, next) {
   try {
-    const token = req.headers.authorization;
+    const token = req.cookies.accessToken;
 
     if (!token) {
       throw CustomErrorHandler.BadRequest("Token not found");
     }
 
-    const bearer = token.split(" ")[0];
-    const partOfToken = token.split(" ")[1];
-
-    if (bearer !== "Bearer" || !partOfToken) {
-      throw CustomErrorHandler.BadRequest("Bearer not found");
-    }
-
-    const decode = jwt.verify(partOfToken, process.env.SECRET_KEY);
+    const decode = jwt.verify(token, process.env.SECRET_KEY);
 
     req.user = decode;
 
-    if (req.user.role !== "admin" && req.user.role !== "superAdmin") {
-      throw CustomErrorHandler.Forbidden("you are not admin or superadmin");
+    if (req.user.role !== "admin") {
+      throw CustomErrorHandler.Forbidden("you are not admin");
     }
 
     next();

@@ -3,6 +3,7 @@ const AuthSchema = require("../schema/auth.schema");
 const bcrypt = require("bcryptjs");
 const sendEmail = require("../utils/email-sender");
 const jwt = require("jsonwebtoken");
+const { access_token, refresh_token } = require("../validator/token.generator");
 
 const register = async (req, res) => {
   try {
@@ -66,8 +67,16 @@ const verify = async (req, res) => {
       role: foundedUser.role,
     };
 
-    const token = jwt.sign(payload, process.env.SECRET_KEY, {
-      expiresIn: "15d",
+    const access = access_token(payload);
+    const refresh = refresh_token(payload);
+
+    res.cookie("accessToken", access, {
+      httpOnly: true,
+      maxAge: 60 * 1000 * 15,
+    });
+    res.cookie("refreshToken", refresh, {
+      httpOnly: true,
+      maxAge: 60 * 1000 * 60 * 24 * 7,
     });
 
     await AuthSchema.findByIdAndUpdate(foundedUser._id, {
@@ -77,7 +86,7 @@ const verify = async (req, res) => {
 
     res.status(200).json({
       message: "Succes",
-      token,
+      token: access,
     });
   } catch (error) {
     res.status(500).json({
@@ -107,15 +116,32 @@ const login = async (req, res) => {
 
       await sendEmail(email, randomCode);
 
-      await AuthSchema.findByIdAndUpdate(foundedUser._id, {otp: randomCode, otpTime: dateNow})
+      await AuthSchema.findByIdAndUpdate(foundedUser._id, {
+        otp: randomCode,
+        otpTime: dateNow,
+      });
 
       res.status(200).json({
-        message: "Please check your email"
-      })
-
+        message: "Please check your email",
+      });
     } else {
       throw CustomErrorHandler.UnAuthorized("Wrong password");
     }
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    res.clearCookie("accessToken")
+    res.clearCookie("refreshToken")
+
+    res.status(200).json({
+      message: "ok"
+    })
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -127,4 +153,5 @@ module.exports = {
   register,
   verify,
   login,
+  logout
 };
