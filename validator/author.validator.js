@@ -19,7 +19,6 @@ module.exports = function (data) {
       .required(),
     work: joi.string().required(),
     region: joi.string().required(),
-    phone_number: joi.string().required(),
   });
 
   return schema.validate(data);

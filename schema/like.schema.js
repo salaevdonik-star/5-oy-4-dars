@@ -16,4 +16,4 @@ const Like = new Schema({
   timestamps: true
 })
 const LikeSchema = model("Like", Like)
-module.exports = LikeSchema 
+module.exports = LikeSchema
