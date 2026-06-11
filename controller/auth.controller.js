@@ -136,12 +136,81 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    res.clearCookie("accessToken")
-    res.clearCookie("refreshToken")
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
 
     res.status(200).json({
-      message: "ok"
-    })
+      message: "ok",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+const getProfile = async (req, res) => {
+  try {
+    const foundedUser = await AuthSchema.findOne({ _id: req.user.id }).select(
+      "-password",
+    );
+
+    res.status(200).json(foundedUser);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const foundedUser = await AuthSchema.findOne({ email });
+
+    if (!foundedUser) {
+      throw CustomErrorHandler.UnAuthorized("User not found");
+    }
+
+    const randomCode = Array.from({ length: 6 }, () =>
+      Math.floor(Math.random() * 9),
+    ).join("");
+
+    const dateNow = Date.now() + 120000;
+
+    await sendEmail(email, randomCode);
+
+    await AuthSchema.findByIdAndUpdate(foundedUser._id, {
+      otp: randomCode,
+      otpTime: dateNow,
+    });
+
+    res.status(200).json({
+      message: "Please check your email",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    const { new_password } = req.body;
+
+    const foundedUser = await AuthSchema.findOne({ email: req.user.email });
+
+    const hashPassword = await bcrypt.hash(new_password, 12);
+
+    await AuthSchema.findByIdAndUpdate(foundedUser._id, {
+      password: hashPassword,
+    });
+
+    res.status(200).json({
+      message: "Success",
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -153,5 +222,8 @@ module.exports = {
   register,
   verify,
   login,
-  logout
+  logout,
+  getProfile,
+  forgotPassword,
+  changePassword,
 };

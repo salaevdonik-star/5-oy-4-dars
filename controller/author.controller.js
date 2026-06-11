@@ -26,7 +26,6 @@ const search = async (req, res, next) => {
 };
 
 const addAuthor = async (req, res, next) => {
-  console.log("So'rov controllerga keldi!");
   try {
     const { full_name, birth_year, death_year, bio, period, work, region } =
       req.body;
