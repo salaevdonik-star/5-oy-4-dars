@@ -10,6 +10,8 @@ const cookieParser = require("cookie-parser");
 const citationRouter = require('./router/citation.routes');
 const likeRouter = require('./router/like.routes');
 const path = require("path")
+const YAML = require("yamljs") 
+const swaggerUi = require("swagger-ui-express")
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,7 +26,7 @@ app.use(express.urlencoded({
 connectDB();
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads/images")))
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(YAML.load("./docs/documantation.yml"))) 
 
 app.use(authorRouter);
 app.use(bookRouter);
@@ -32,8 +34,9 @@ app.use(authRouter);
 app.use(citationRouter)
 app.use(likeRouter)
 
-app.use(errorMiddleware);
+app.use(errorMiddleware);   
 
-app.listen(PORT, () => {
+app.listen(PORT, () => {  
   console.log("Server is running at: " + PORT);
-});
+});    
+      

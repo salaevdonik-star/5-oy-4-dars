@@ -1,0 +1,1294 @@
+openapi: 3.0.0
+info:
+  title: DevBook API
+  version: "1.0.0"
+  description: API documentation for DevBook — a platform for developers to share knowledge and collaborate on books, authors, and citations.
+
+servers:
+  - url: http://localhost:4001
+    description: Local development server
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        username:
+          type: string
+          example: "Johndoe"
+        email:
+          type: string
+          example: "john.doe@gmail.com"
+        role:
+          type: string
+          enum: [user, admin, superadmin]
+          example: "user"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Author:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        full_name:
+          type: string
+          example: "Alisher Navoiy"
+        birth_year:
+          type: number
+          example: 1441
+        death_year:
+          type: number
+          nullable: true
+          example: 1501
+        bio:
+          type: string
+          example: "O'zbek adabiyotining buyuk vakili"
+        period:
+          type: string
+          enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+          example: "Temuriylar davri"
+        work:
+          type: string
+          example: "Xamsa"
+        region:
+          type: string
+          example: "Hirot"
+        picture:
+          type: string
+          example: "http://localhost:4001/uploads/image_0.123.png"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Book:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        title:
+          type: string
+          example: "Xamsa"
+        period:
+          type: string
+          enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+          example: "Temuriylar davri"
+        pages:
+          type: number
+          example: 512
+        published_year:
+          type: number
+          example: 1483
+        genres:
+          type: string
+          enum: ["Fantastik", "Badiy", "Drama", "meladrama", "tarixiy", "diniy", "romantik", "roman"]
+          example: "Badiy"
+        publisher:
+          type: string
+          example: "Sharq nashriyoti"
+        details:
+          type: string
+          example: "Besh dostondan iborat buyuk asar"
+        author_info:
+          $ref: '#/components/schemas/Author'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Citation:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        body:
+          type: string
+          example: "Ilm olish har bir musulmonga farzdir"
+        book_id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Error message"
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Success"
+
+tags:
+  - name: Authentication
+    description: Foydalanuvchi ro'yxatdan o'tish, kirish va profil boshqaruvi
+  - name: Authors
+    description: Mualliflar bilan ishlash (CRUD)
+  - name: Books
+    description: Kitoblar bilan ishlash (CRUD)
+  - name: Citations
+    description: Sitatalar bilan ishlash (CRUD)
+  - name: Likes
+    description: Sitatalarga like bosish
+
+paths:
+
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Yangi foydalanuvchi ro'yxatdan o'tkazish
+      description: >
+        Username, email va parol qabul qiladi. Email orqali 6 xonali OTP kod yuboriladi.
+        Kod 2 daqiqa amal qiladi. So'ngra /verify orqali tasdiqlash kerak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                  example: "Johndoe"
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@gmail.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "password123"
+      responses:
+        '201':
+          description: Foydalanuvchi muvaffaqiyatli ro'yxatdan o'tdi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Registered"
+        '401':
+          description: Foydalanuvchi allaqachon mavjud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify:
+    post:
+      tags:
+        - Authentication
+      summary: Email tasdiqlash (OTP kod)
+      description: >
+        Register yoki login dan keyin emailga kelgan 6 xonali kodni tasdiqlash.
+        Muvaffaqiyatli bo'lsa accessToken va refreshToken cookie sifatida o'rnatiladi.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@gmail.com"
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  example: "482931"
+      responses:
+        '200':
+          description: Email muvaffaqiyatli tasdiqlandi, tokenlar qaytarildi
+          headers:
+            Set-Cookie:
+              description: accessToken va refreshToken cookie sifatida o'rnatiladi
+              schema:
+                type: string
+                example: "accessToken=eyJ...; HttpOnly; Max-Age=900"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Succes"
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Kod noto'g'ri yoki muddati o'tgan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Foydalanuvchi topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: Foydalanuvchi tizimga kirishi
+      description: >
+        Email va parolni tekshiradi. To'g'ri bo'lsa emailga OTP kod yuboradi.
+        Kod /verify orqali tasdiqlanishi kerak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@gmail.com"
+                password:
+                  type: string
+                  example: "password123"
+      responses:
+        '200':
+          description: Parol to'g'ri — email tekshirilsin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Please check your email"
+        '401':
+          description: Parol noto'g'ri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Foydalanuvchi topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logout:
+    get:
+      tags:
+        - Authentication
+      summary: Tizimdan chiqish
+      description: accessToken va refreshToken cookie larini o'chiradi.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Muvaffaqiyatli chiqildi
+          headers:
+            Set-Cookie:
+              description: Tokenlar o'chiriladi
+              schema:
+                type: string
+                example: "accessToken=; HttpOnly; Max-Age=0"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /refresh:
+    get:
+      tags:
+        - Authentication
+      summary: Tokenlarni yangilash
+      description: Cookie dagi refreshToken orqali yangi accessToken va refreshToken yaratadi.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Tokenlar muvaffaqiyatli yangilandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Refresh token noto'g'ri yoki muddati o'tgan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /profile:
+    get:
+      tags:
+        - Authentication
+      summary: Foydalanuvchi profilini olish
+      description: Tizimga kirgan foydalanuvchining profil ma'lumotlarini qaytaradi (parolsiz).
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Profil muvaffaqiyatli qaytarildi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Token mavjud emas yoki noto'g'ri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /forgot_password:
+    post:
+      tags:
+        - Authentication
+      summary: Parolni unutdim — OTP yuborish
+      description: Email mavjud bo'lsa, 6 xonali OTP kod yuboradi. Kod /change_password oldidan /verify bilan tasdiqlanishi kerak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@gmail.com"
+      responses:
+        '200':
+          description: OTP kod emailga yuborildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Please check your email"
+        '404':
+          description: Foydalanuvchi topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /change_password:
+    post:
+      tags:
+        - Authentication
+      summary: Parolni o'zgartirish
+      description: Tizimga kirgan foydalanuvchi uchun yangi parol o'rnatadi. Authorization talab qilinadi.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_password]
+              properties:
+                new_password:
+                  type: string
+                  minLength: 6
+                  example: "newSecurePassword456"
+      responses:
+        '200':
+          description: Parol muvaffaqiyatli o'zgartirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Success"
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_all_authors:
+    get:
+      tags:
+        - Authors
+      summary: Barcha mualliflarni olish
+      description: Bazadagi barcha mualliflar ro'yxatini qaytaradi. Foydalanuvchi login bo'lishi shart.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Mualliflar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_one_author/{id}:
+    get:
+      tags:
+        - Authors
+      summary: Bitta muallifni ID orqali olish
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Muallif MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Muallif ma'lumotlari
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Author'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Muallif topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search:
+    get:
+      tags:
+        - Authors
+      summary: Muallif qidirish (ism bo'yicha)
+      description: full_name maydoni bo'yicha case-insensitive qidirish.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: searchingvalue
+          in: query
+          required: true
+          description: Qidiruv so'zi
+          schema:
+            type: string
+            example: "Navoiy"
+      responses:
+        '200':
+          description: Mos kelgan mualliflar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /add_author:
+    post:
+      tags:
+        - Authors
+      summary: Yangi muallif qo'shish (faqat Admin)
+      description: Rasm fayli bilan birga muallif yaratadi. Faqat admin va superadmin uchun.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [full_name, birth_year, bio, period, work, region, upload_image]
+              properties:
+                full_name:
+                  type: string
+                  example: "Alisher Navoiy"
+                birth_year:
+                  type: number
+                  example: 1441
+                death_year:
+                  type: number
+                  nullable: true
+                  example: 1501
+                bio:
+                  type: string
+                  example: "O'zbek adabiyotining buyuk vakili"
+                period:
+                  type: string
+                  enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+                  example: "Temuriylar davri"
+                work:
+                  type: string
+                  example: "Xamsa"
+                region:
+                  type: string
+                  example: "Hirot"
+                upload_image:
+                  type: string
+                  format: binary
+                  description: Muallifning rasmi (jpg, png)
+      responses:
+        '201':
+          description: Muallif muvaffaqiyatli qo'shildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Added new author"
+        '400':
+          description: Rasm fayli yuborilmagan yoki ma'lumot xato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /update_author/{id}:
+    put:
+      tags:
+        - Authors
+      summary: Muallif ma'lumotlarini yangilash (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Muallif MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  example: "Alisher Navoiy"
+                birth_year:
+                  type: number
+                  example: 1441
+                death_year:
+                  type: number
+                  nullable: true
+                  example: 1501
+                bio:
+                  type: string
+                  example: "Yangilangan bio"
+                period:
+                  type: string
+                  enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+                work:
+                  type: string
+                  example: "Xamsa"
+                region:
+                  type: string
+                  example: "Hirot"
+      responses:
+        '200':
+          description: Muallif yangilandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated author"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Muallif topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /delete_author/{id}:
+    delete:
+      tags:
+        - Authors
+      summary: Muallifni o'chirish (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Muallif MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Muallif o'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted author"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Muallif topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_all_books:
+    get:
+      tags:
+        - Books
+      summary: Barcha kitoblarni olish
+      description: Barcha kitoblar ro'yxatini muallif ma'lumotlari bilan qaytaradi.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Kitoblar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_one_book/{id}:
+    get:
+      tags:
+        - Books
+      summary: Bitta kitobni ID orqali olish
+      description: Kitob ma'lumotlarini va unga tegishli sitatalarni birga qaytaradi.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Kitob MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Kitob va sitatalar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Book'
+                  citation:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Citation'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Kitob topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_all_books/search:
+    get:
+      tags:
+        - Books
+      summary: Kitob qidirish (sarlavha bo'yicha)
+      description: title maydoni bo'yicha case-insensitive qidirish.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: searchingvalue
+          in: query
+          required: true
+          description: Qidiruv so'zi
+          schema:
+            type: string
+            example: "Xamsa"
+      responses:
+        '200':
+          description: Mos kelgan kitoblar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /add_book:
+    post:
+      tags:
+        - Books
+      summary: Yangi kitob qo'shish (faqat Admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, period, pages, published_year, genres, publisher, details, author_info]
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                  example: "Xamsa"
+                period:
+                  type: string
+                  enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+                  example: "Temuriylar davri"
+                pages:
+                  type: number
+                  minimum: 1
+                  maximum: 10000
+                  example: 512
+                published_year:
+                  type: number
+                  example: 1483
+                genres:
+                  type: string
+                  enum: ["Fantastik", "Badiy", "Drama", "meladrama", "tarixiy", "diniy", "romantik", "roman"]
+                  example: "Badiy"
+                publisher:
+                  type: string
+                  example: "Sharq nashriyoti"
+                details:
+                  type: string
+                  example: "Besh dostondan iborat buyuk asar"
+                author_info:
+                  type: string
+                  description: Muallif MongoDB ID si
+                  example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '201':
+          description: Kitob muvaffaqiyatli qo'shildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Added new book"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /update_book/{id}:
+    put:
+      tags:
+        - Books
+      summary: Kitob ma'lumotlarini yangilash (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Kitob MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: "Yangilangan sarlavha"
+                period:
+                  type: string
+                  enum: ["Temuriylar davri", "Jadid davri", "Sovet davri", "Mustaqillik davri"]
+                pages:
+                  type: number
+                  example: 600
+                published_year:
+                  type: number
+                  example: 1490
+                genres:
+                  type: string
+                  enum: ["Fantastik", "Badiy", "Drama", "meladrama", "tarixiy", "diniy", "romantik", "roman"]
+                publisher:
+                  type: string
+                  example: "Yangi nashriyot"
+                details:
+                  type: string
+                  example: "Yangilangan tavsif"
+                author_info:
+                  type: string
+                  example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Kitob yangilandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated book"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Kitob topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /delete_book/{id}:
+    delete:
+      tags:
+        - Books
+      summary: Kitobni o'chirish (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Kitob MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Kitob o'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted book"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Kitob topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /add_citation:
+    post:
+      tags:
+        - Citations
+      summary: Yangi sitata qo'shish (faqat Admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body, book_id]
+              properties:
+                body:
+                  type: string
+                  example: "Ilm olish har bir musulmonga farzdir"
+                book_id:
+                  type: string
+                  description: Kitob MongoDB ID si
+                  example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '201':
+          description: Sitata muvaffaqiyatli qo'shildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Added new citation"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /update_citation/{id}:
+    put:
+      tags:
+        - Citations
+      summary: Sitatani yangilash (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Sitata MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+                  example: "Yangilangan sitata matni"
+                book_id:
+                  type: string
+                  example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Sitata yangilandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated citation"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sitata topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /delete_citation/{id}:
+    delete:
+      tags:
+        - Citations
+      summary: Sitatani o'chirish (faqat Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Sitata MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Sitata o'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted citation"
+        '401':
+          description: Admin huquqi yo'q
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sitata topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /like/{citation_id}:
+    post:
+      tags:
+        - Likes
+      summary: Like bosish / like'ni olib tashlash (toggle)
+      description: >
+        Agar foydalanuvchi bu sitataga avval like bosgan bo'lsa — like o'chiriladi.
+        Aks holda yangi like qo'shiladi.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: citation_id
+          in: path
+          required: true
+          description: Sitata MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Like olib tashlandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Like removed"
+                  liked:
+                    type: boolean
+                    example: false
+        '201':
+          description: Like qo'shildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Like added"
+                  liked:
+                    type: boolean
+                    example: true
+        '401':
+          description: Avtorizatsiya xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sitata topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /likes/{citation_id}:
+    get:
+      tags:
+        - Likes
+      summary: Sitata likelari sonini olish
+      description: Berilgan sitataga bosilgan likelar sonini qaytaradi. Avtorizatsiya talab qilinmaydi.
+      parameters:
+        - name: citation_id
+          in: path
+          required: true
+          description: Sitata MongoDB ID si
+          schema:
+            type: string
+            example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        '200':
+          description: Like soni
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  citation_id:
+                    type: string
+                    example: "664f1a2b3c4d5e6f7a8b9c0d"
+                  likes_count:
+                    type: number
+                    example: 42
+        '404':
+          description: Sitata topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server xatosi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
